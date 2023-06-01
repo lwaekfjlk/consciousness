@@ -51,21 +51,19 @@ def prompt_llm(prompt, max_tokens=64, temperature=0, stop=None):
     response = openai.Completion.create(engine=gpt_version, prompt=prompt, max_tokens=max_tokens, temperature=temperature, stop=stop)
     return response["choices"][0]["text"].strip()
 
-def load_place_texts():
+def load_texts():
     # Load scene categories from Places365.
     place_categories = np.loadtxt('categories_places365.txt', dtype=str)
     place_texts = []
     for place in place_categories[:, 0]:
         place = place.split('/')[2:]
-    if len(place) > 1:
-        place = place[1] + ' ' + place[0]
-    else:
-        place = place[0]
-    place = place.replace('_', ' ')
-    place_texts.append(place)
-    return place_texts
+        if len(place) > 1:
+            place = place[1] + ' ' + place[0]
+        else:
+            place = place[0]
+        place = place.replace('_', ' ')
+        place_texts.append(place)
 
-def load_object_texts():
     # Load object categories from Tencent ML Images.
     with open('dictionary_and_semantic_hierarchy.txt') as fid:
         object_categories = fid.readlines()
@@ -74,16 +72,17 @@ def load_object_texts():
     for object_text in object_categories[1:]:
         object_text = object_text.strip()
         object_text = object_text.split('\t')[3]
-    safe_list = ''
-    for variant in object_text.split(','):
-        text = variant.strip()
-        if pf.is_clean(text):
-            safe_list += f'{text}, '
-    safe_list = safe_list[:-2]
-    if len(safe_list) > 0:
-        object_texts.append(safe_list)
+        safe_list = ''
+        for variant in object_text.split(','):
+            text = variant.strip()
+            if pf.is_clean(text):
+                safe_list += f'{text}, '
+        safe_list = safe_list[:-2]
+        if len(safe_list) > 0:
+            object_texts.append(safe_list)
     object_texts = [o for o in list(set(object_texts)) if o not in place_texts]  # Remove redundant categories.
-    return object_texts
+    object_feats = get_text_feats([f'Photo of a {o}.' for o in object_texts])
+    return place_texts, object_texts
 
 def img_caption():
     # Download image.
@@ -118,15 +117,14 @@ def img_caption():
     else:
         ppl_result = f'are {ppl_result}'
 
+    place_texts, object_texts = load_texts()
     # Zero-shot VLM: classify places.
     place_topk = 3
-    place_texts = load_place_texts()
     place_feats = get_text_feats([f'Photo of a {p}.' for p in place_texts ])
     sorted_places, places_scores = get_nn_text(place_texts, place_feats, img_feats)
 
     # Zero-shot VLM: classify objects.
     obj_topk = 10
-    object_texts = load_object_texts()
     object_feats = get_text_feats([f'Photo of a {o}.' for o in object_texts])
     sorted_obj_texts, obj_scores = get_nn_text(object_texts, object_feats, img_feats)
     object_list = ''
@@ -172,7 +170,7 @@ def img_caption():
 
 
 if __name__ == '__main__':
-    openai_api_key = "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"
+    openai_api_key = os.environ['OPENAI_API_KEY']
     openai.api_key = openai_api_key
 
     clip_version = "ViT-L/14" #@param ["RN50", "RN101", "RN50x4", "RN50x16", "RN50x64", "ViT-B/32", "ViT-B/16", "ViT-L/14"] {type:"string"}
