@@ -30,6 +30,7 @@ def get_text_feats(in_text, batch_size=64):
             text_id += batch_size
     return text_feats
 
+
 def get_img_feats(img):
     img_pil = Image.fromarray(np.uint8(img))
     img_in = preprocess(img_pil)[None, ...]
@@ -39,6 +40,7 @@ def get_img_feats(img):
     img_feats = np.float32(img_feats.cpu())
     return img_feats
 
+
 def get_nn_text(raw_texts, text_feats, img_feats):
     scores = text_feats @ img_feats.T
     scores = scores.squeeze()
@@ -47,9 +49,11 @@ def get_nn_text(raw_texts, text_feats, img_feats):
     high_to_low_scores = np.sort(scores).squeeze()[::-1]
     return high_to_low_texts, high_to_low_scores
 
+
 def prompt_llm(prompt, max_tokens=64, temperature=0, stop=None):
     response = openai.Completion.create(engine=gpt_version, prompt=prompt, max_tokens=max_tokens, temperature=temperature, stop=stop)
     return response["choices"][0]["text"].strip()
+
 
 def load_texts():
     # Load scene categories from Places365.
@@ -83,6 +87,7 @@ def load_texts():
     object_texts = [o for o in list(set(object_texts)) if o not in place_texts]  # Remove redundant categories.
     object_feats = get_text_feats([f'Photo of a {o}.' for o in object_texts])
     return place_texts, object_texts
+
 
 def img_summary(img):
     verbose = True #@param {type:"boolean"}
@@ -169,37 +174,22 @@ if __name__ == '__main__':
     print("Vocab size:", model.vocab_size)
     img_size = model.visual.input_resolution
 
-
+    '''
     state_world_histories = []
-    for i in range(1, 4):
-        fname = 'frame{}.jpg'.format(i)
-        img = cv2.cvtColor(cv2.imread(fname), cv2.COLOR_BGR2RGB)
-        state_world_histories.append(img_summary(img))
-        import pdb; pdb.set_trace()
+    fname = 'frame_34144.png'
+    img = cv2.cvtColor(cv2.imread(fname), cv2.COLOR_BGR2RGB)
+    state_world_histories.append(img_summary(img))
+    import pdb; pdb.set_trace()
+    '''
 
     prompt = """
-I am in a staircase, house, or bedroom.
-I see a step, stair, stair-carpet, lesser ape.
-I am climbing, jumping, or running.
-I am most likely climbing the stairs.
-
-I am in a living room, television room, or home theater.
-I see a television room, tv room, family room, entertainment center.
-I am Having movie nights, Hanging out with family, or Watching movies.
-I am most likely watching movies.
-
-I am in a pantry, kitchen, or closet.
-I see a cookie jar, cooky jar, cupboard, closet, plate rack.
-I am accessing items, organizing, or storing food.
-I am most likely organizing and/or storing food.
-
-Question: what will happen next in my day? Answer and Explain:
+I am in a pet shop, candy store, or fastfood restaurant.
+I see a employee, money handler, money dealer, salesman.
+I am Processing payments, Handling money, or Greeting customers.
+I am most likely processing payments or handling money.
+Question: Where did the man put the money ? Answer: 
     """
 
-    prompt = f'''{state_world_histories[0]};
-    {state_world_histories[1]};
-    {state_world_histories[2]};
-    Question: Have I enjoyed a good day? Answer and Explain:  '''
     socratic_res = prompt_llm(prompt, temperature=0.9)
     print(socratic_res)
     
