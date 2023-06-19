@@ -3,6 +3,7 @@ import json
 import os
 import re
 import time
+import csv
 
 import requests
 import matplotlib.pyplot as plt
@@ -18,6 +19,7 @@ import torch
 from sklearn.metrics import f1_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
+from fer import FER
 
 gpt_version = "gpt-3.5-turbo-0613"
 openai.api_key = os.environ['OPENAI_API_KEY']
@@ -206,39 +208,104 @@ People are most likely {summary}. '''
     return state_world
 
 
+def add_text(data, prompt):
+    utterance = data['utterance']
+    context = data['context']
+    utterance_speaker = data['speaker']
+    context_speaker = data['context_speakers']
+    for s, u in zip(context_speaker, context):
+        prompt += '{}: {}\n'.format(s, u)
+    prompt += '{}: {}\n'.format(utterance_speaker, utterance)
+    return prompt
+
+def add_face_emotion(img, prompt):
+    emotion_prompt = ''
+    detector = FER()
+    detector_results = detector.detect_emotions(img)
+    for detector_result in detector_results:
+        emotions = detector_result['emotions']
+        for emotion, score in emotions.items():
+            if score > 0.7:
+                emotion_prompt += 'One person feels {}.\n'.format(emotion)
+    if len(emotion_prompt) == 0:
+        return prompt
+    else:
+        if "In the video, people have different emotions:" not in prompt:
+            prompt += "In the video, people have different emotions:\n" + emotion_prompt
+        else:
+            prompt += emotion_prompt
+        return prompt
+
+
+def add_audio(emotion, prompt):
+    prompt += 'The last utterance is said in a {} tone.\n'.format(emotion)
+    return prompt
+
+
+def count_files_in_directory(directory):
+    return len([f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))])
+
+
+
 if __name__ == '__main__':
     with open('./sarcasm_data.json', 'r') as f:
         dataset = json.load(f)
     predictions = []
     gths = []
+
+    audio_data = {}
+    with open('./data/audios/utterances_final.csv', 'r') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            audio_data[row[0]] = row[-1]
+
     for idx, data in tqdm(dataset.items()):
-        utterance = data['utterance']
-        context = data['context']
-        utterance_speaker = data['speaker']
-        context_speaker = data['context_speakers']
-        gth = data['sarcasm']
-        gths.append(gth)
         prompt = """
+I want you to judge whether the last utterance is sarcastic or not based on emotions and talking.
+Here is an exmaple:
 LEONARD: I never would have identified the fingerprints of string theory in the aftermath of the Big Bang.
 SHELDON: My apologies. What's your plan?
 SHELDON: It's just a privilege to watch your mind at work.
-Question: Is the last utterance sarcastic? Answer: Yes.
+The last utterance is said in a angry tone.
+Question: Is the last utterance sarcastic? Answer with YES or NO: YES.
+Here is the final question:
 """
-        for s, u in zip(context_speaker, context):
-            prompt += '{}: {}\n'.format(s, u)
-        prompt += '{}: {}\n'.format(utterance_speaker, utterance)
+        dir_name = './data/frames/utterances_final/'
+        directory = '{}/{}'.format(dir_name, idx)
+        img_num = count_files_in_directory(directory)
+        '''
+        for img_id in range(1, img_num+1, 20):
+            img_name = str(img_id).zfill(5) + '.jpg'
+            img = cv2.imread(os.path.join(directory, img_name))
+            prompt = add_face_emotion(img, prompt)
+        '''
 
-        prompt += 'Question: Is the last utterance sarcastic? Answer: ' 
+
+
+        gth = data['sarcasm']
+        gths.append(gth)
+        
+        
+        prompt = add_text(data, prompt)
+
+        audio_emotion = audio_data[idx]
+        prompt = add_audio(audio_emotion, prompt)
+        prompt += 'Question: Is the last utterance sarcastic? Answer with YES or NO: ' 
+
+        print(prompt)
+
         while True:
+            #socratic_res = prompt_chatllm(prompt, temperature=0.9)
             try:
                 socratic_res = prompt_chatllm(prompt, temperature=0.9)
             except:
                 socratic_res = ''
+                print('Error, retrying...')
                 time.sleep(5)
-            if 'Yes' in socratic_res or 'yes' in socratic_res:
+            if 'YES' in socratic_res:
                 predictions.append(True)
                 break
-            elif 'No' in socratic_res or 'no' in socratic_res:
+            elif 'NO' in socratic_res:
                 predictions.append(False)
                 break
         print(socratic_res)
@@ -250,6 +317,7 @@ Question: Is the last utterance sarcastic? Answer: Yes.
     # compute precision and recall
     precision = precision_score(gths, predictions)
     recall = recall_score(gths, predictions)
+    print(acc, f1, precision, recall)
     import pdb; pdb.set_trace()
 
     clip_version = "ViT-L/14"
