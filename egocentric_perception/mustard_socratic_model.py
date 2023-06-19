@@ -15,8 +15,11 @@ from PIL import Image
 from profanity_filter import ProfanityFilter
 from google.cloud import vision
 import torch
+from sklearn.metrics import f1_score
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
 
-gpt_version = "text-davinci-003"
+gpt_version = "gpt-3.5-turbo-0613"
 openai.api_key = os.environ['OPENAI_API_KEY']
 
 
@@ -66,6 +69,13 @@ def prompt_llm(prompt, max_tokens=64, temperature=0, stop=None):
     response = openai.Completion.create(engine=gpt_version, prompt=prompt, max_tokens=max_tokens, temperature=temperature, stop=stop)
     return response["choices"][0]["text"].strip()
 
+def prompt_chatllm(prompt, max_tokens=64, temperature=0, stop=None):
+    messages = [{"role": "user", "content": prompt}]
+    response = openai.ChatCompletion.create(
+        model=gpt_version,
+        messages=messages,
+    )
+    return response["choices"][0]["message"]["content"].strip()
 
 def load_texts():
     start_time = time.time()
@@ -151,7 +161,7 @@ def get_activity(img_feats, places, objs):
     prompt = f'''Places: {places[0]}, {places[1]}, or {places[2]}.
     Objects: {objs[0]}, {objs[1]}, {objs[2]}.
     Activities (separate them with /): '''
-    gen_res = [prompt_llm(prompt, temperature=0.9) for _ in range(activity_topk)]
+    gen_res = [prompt_chatllm(prompt, temperature=0.9) for _ in range(activity_topk)]
     for activity in gen_res:
         activities = [a.strip().replace('.', '') for a in activity.split('/')]
         activity_texts += activities
@@ -197,6 +207,51 @@ People are most likely {summary}. '''
 
 
 if __name__ == '__main__':
+    with open('./sarcasm_data.json', 'r') as f:
+        dataset = json.load(f)
+    predictions = []
+    gths = []
+    for idx, data in tqdm(dataset.items()):
+        utterance = data['utterance']
+        context = data['context']
+        utterance_speaker = data['speaker']
+        context_speaker = data['context_speakers']
+        gth = data['sarcasm']
+        gths.append(gth)
+        prompt = """
+LEONARD: I never would have identified the fingerprints of string theory in the aftermath of the Big Bang.
+SHELDON: My apologies. What's your plan?
+SHELDON: It's just a privilege to watch your mind at work.
+Question: Is the last utterance sarcastic? Answer: Yes.
+"""
+        for s, u in zip(context_speaker, context):
+            prompt += '{}: {}\n'.format(s, u)
+        prompt += '{}: {}\n'.format(utterance_speaker, utterance)
+
+        prompt += 'Question: Is the last utterance sarcastic? Answer: ' 
+        while True:
+            try:
+                socratic_res = prompt_chatllm(prompt, temperature=0.9)
+            except:
+                socratic_res = ''
+                time.sleep(5)
+            if 'Yes' in socratic_res or 'yes' in socratic_res:
+                predictions.append(True)
+                break
+            elif 'No' in socratic_res or 'no' in socratic_res:
+                predictions.append(False)
+                break
+        print(socratic_res)
+    
+    # given gths list and predictions list, compute accuracy
+    acc = sum([1 if p == g else 0 for p, g in zip(predictions, gths)]) / len(gths)
+    # compute f1 score
+    f1 = f1_score(gths, predictions)
+    # compute precision and recall
+    precision = precision_score(gths, predictions)
+    recall = recall_score(gths, predictions)
+    import pdb; pdb.set_trace()
+
     clip_version = "ViT-L/14"
     clip_feat_dim = {'RN50': 1024, 'RN101': 512, 'RN50x4': 640, 'RN50x16': 768, 'RN50x64': 1024, 'ViT-B/32': 512, 'ViT-B/16': 512, 'ViT-L/14': 768}[clip_version]
     model, preprocess = clip.load(clip_version)
