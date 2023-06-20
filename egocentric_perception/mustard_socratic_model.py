@@ -254,7 +254,7 @@ if __name__ == '__main__':
     gths = []
 
     audio_data = {}
-    with open('./data/audios/utterances_final.csv', 'r') as f:
+    with open('./data/audios/utterances_final_.csv', 'r') as f:
         reader = csv.reader(f)
         for row in reader:
             audio_data[row[0]] = row[-1]
@@ -265,17 +265,19 @@ if __name__ == '__main__':
         directory = '{}/{}'.format(dir_name, idx)
         img_num = count_files_in_directory(directory)
 
+        '''
         prompt = add_text(data, prompt)
         for img_id in range(1, img_num+1, 20):
             img_name = str(img_id).zfill(5) + '.jpg'
             img = cv2.imread(os.path.join(directory, img_name))
             prompt = add_face_emotion(img, prompt)
+        '''
 
         utterance = data['utterance']
         
 
-        #audio_emotion = audio_data[idx]
-        #prompt = add_audio(utterance, audio_emotion, prompt)
+        audio_emotion = audio_data[idx]
+        prompt = add_audio(utterance, audio_emotion, prompt)
         prompt += f'Question: Is the last utterance sarcastic? Answer with YES or NO: ' 
 
         print(prompt)
