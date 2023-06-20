@@ -163,3 +163,4 @@ cython_debug/
 *.wav
 *.mp4
 **/ego4d_data
+*/data

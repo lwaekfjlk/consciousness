@@ -237,8 +237,8 @@ def add_face_emotion(img, prompt):
         return prompt
 
 
-def add_audio(emotion, prompt):
-    prompt += 'The last utterance is said in a {} tone.\n'.format(emotion)
+def add_audio(utterance, emotion, prompt):
+    prompt += '"{}" is said in a {} tone.\n'.format(utterance, emotion)
     return prompt
 
 
@@ -260,54 +260,46 @@ if __name__ == '__main__':
             audio_data[row[0]] = row[-1]
 
     for idx, data in tqdm(dataset.items()):
-        prompt = """
-I want you to judge whether the last utterance is sarcastic or not based on emotions and talking.
-Here is an exmaple:
-LEONARD: I never would have identified the fingerprints of string theory in the aftermath of the Big Bang.
-SHELDON: My apologies. What's your plan?
-SHELDON: It's just a privilege to watch your mind at work.
-The last utterance is said in a angry tone.
-Question: Is the last utterance sarcastic? Answer with YES or NO: YES.
-Here is the final question:
-"""
+        prompt = """Here is the final question:\n"""
         dir_name = './data/frames/utterances_final/'
         directory = '{}/{}'.format(dir_name, idx)
         img_num = count_files_in_directory(directory)
-        '''
+
+        prompt = add_text(data, prompt)
         for img_id in range(1, img_num+1, 20):
             img_name = str(img_id).zfill(5) + '.jpg'
             img = cv2.imread(os.path.join(directory, img_name))
             prompt = add_face_emotion(img, prompt)
-        '''
 
-
-
-        gth = data['sarcasm']
-        gths.append(gth)
+        utterance = data['utterance']
         
-        
-        prompt = add_text(data, prompt)
 
-        audio_emotion = audio_data[idx]
-        prompt = add_audio(audio_emotion, prompt)
-        prompt += 'Question: Is the last utterance sarcastic? Answer with YES or NO: ' 
+        #audio_emotion = audio_data[idx]
+        #prompt = add_audio(utterance, audio_emotion, prompt)
+        prompt += f'Question: Is the last utterance sarcastic? Answer with YES or NO: ' 
 
         print(prompt)
 
+        iter_num = 0
         while True:
-            #socratic_res = prompt_chatllm(prompt, temperature=0.9)
+            iter_num += 1
+            print(iter_num)
+            if iter_num > 5:
+                break
             try:
                 socratic_res = prompt_chatllm(prompt, temperature=0.9)
+                if 'YES' in socratic_res:
+                    predictions.append(True)
+                    gths.append(data['sarcasm'])
+                    break
+                elif 'NO' in socratic_res:
+                    predictions.append(False)
+                    gths.append(data['sarcasm'])
+                    break
             except:
-                socratic_res = ''
                 print('Error, retrying...')
                 time.sleep(5)
-            if 'YES' in socratic_res:
-                predictions.append(True)
-                break
-            elif 'NO' in socratic_res:
-                predictions.append(False)
-                break
+
         print(socratic_res)
     
     # given gths list and predictions list, compute accuracy
