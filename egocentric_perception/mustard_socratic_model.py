@@ -137,18 +137,20 @@ def generate(prompts):
         iter_num += 1
         gen_ans = []
         for i in range(0, len(prompts), 5):
-            try:
-                gen_ans += asyncio.run(generate_from_openai_chat_completion(
-                    prompts[i:i+5],
-                    config,
-                    temperature=temp,
-                    max_tokens=max_output_len,
-                    top_p=p,
-                    requests_per_minute=100,
-                ))
-            except:
-                print('Failed!!!!')
-                time.sleep(10)
+            while True:
+                try:
+                    gen_ans += asyncio.run(generate_from_openai_chat_completion(
+                        prompts[i:i+5],
+                        config,
+                        temperature=temp,
+                        max_tokens=max_output_len,
+                        top_p=p,
+                        requests_per_minute=100,
+                    ))
+                    break
+                except:
+                    print('Failed! Sleep 5 seconds and try again.')
+                    time.sleep(5)
         new_prompts = []
         new_indices = []
         for idx, ans in enumerate(gen_ans):
@@ -163,8 +165,15 @@ def generate(prompts):
             break
         else:
             prompts = new_prompts  # replace old prompts with new ones that got None as prediction
+    return predictions, confidences
 
-    return predictions, confidences, new_indices
+
+def eval_metric(predictions, labels):
+    acc = sum([1 if p == g else 0 for p, g in zip(predictions, labels)]) / len(labels)
+    f1 = f1_score(labels, predictions)
+    precision = precision_score(labels, predictions)
+    recall = recall_score(labels, predictions)
+    return acc, f1, precision, recall
 
 
 if __name__ == '__main__':
@@ -175,7 +184,6 @@ if __name__ == '__main__':
     predictions = []
     confidences = []
 
-
     audio_info = load_audio_info()
     vision_info = load_vision_info()
 
@@ -183,18 +191,13 @@ if __name__ == '__main__':
     audio_prompts = build_audio_prompt(dataset, audio_info)
     vision_prompts = build_vision_prompt(dataset, vision_info)
 
-    predictions, confidences, new_indices = generate(text_prompts)
+    predictions, confidences = generate(text_prompts)
 
+    import pdb; pdb.set_trace()
+    predictions = [p for p, c, l in zip(predictions, confidences, labels) if p is not None]
+    confidences = [c for p, c, l in zip(predictions, confidences, labels) if p is not None]
+    labels = [l for p, c, l in zip(predictions, confidences, labels) if p is not None]
 
-    # ignore the None value in predictions and confidences in the new indices
-    predictions = [p for idx, p in enumerate(predictions) if idx not in new_indices]
-    confidences = [c for idx, c in enumerate(confidences) if idx not in new_indices]
-    labels = [l for idx, l in enumerate(labels) if idx not in new_indices]
-
-
-    acc = sum([1 if p == g else 0 for p, g in zip(predictions, labels)]) / len(labels)
-    f1 = f1_score(labels, predictions)
-    precision = precision_score(labels, predictions)
-    recall = recall_score(labels, predictions)
+    acc, f1, precision, recall = eval_metric(predictions, labels)
     print(acc, f1, precision, recall)
     import pdb; pdb.set_trace()
