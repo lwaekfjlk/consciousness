@@ -208,16 +208,6 @@ People are most likely {summary}. '''
     return state_world
 
 
-def add_text(data, prompt):
-    utterance = data['utterance']
-    context = data['context']
-    utterance_speaker = data['speaker']
-    context_speaker = data['context_speakers']
-    for s, u in zip(context_speaker, context):
-        prompt += '{}: {}\n'.format(s, u)
-    prompt += '{}: {}\n'.format(utterance_speaker, utterance)
-    return prompt
-
 def add_face_emotion(img, prompt):
     emotion_prompt = ''
     detector = FER()
@@ -246,63 +236,124 @@ def count_files_in_directory(directory):
     return len([f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))])
 
 
+def filter_invalid_ans(ans):
+    judgement = None
+    if 'YES' in ans or 'Yes' in ans:
+        judgement = True
+    elif 'NO' in ans or 'No' in ans:
+        judgement = False
+    
+    confidence = check_numbers(ans)
+    return judgement, confidence
+
+
+def check_numbers(string):
+    pattern = r'[1-5]'
+    matches = re.findall(pattern, string)
+    
+    if matches:
+        return int(matches[0])
+    else:
+        return None
+
+
+def additional_audio_module(audio_emotion, utterance):
+    iter_num = 0
+    while True:
+        iter_num += 1
+        print('audio_module: {}'.format(iter_num))
+        if iter_num > 5:
+            break
+        try:
+            prompt = "Think about the relationship between tone emotions like happy / angry / sad / neutral and whether a sentence is sarcastic or not.\n"
+            prompt += f"The last utterance '{utterance}' is said in a {audio_emotion} tone.\n"
+            prompt += f'Question: Is the last utterance sarcastic? Rate your confidence for your answer from 1-5 and answer with YES or NO: ' 
+            print(prompt)
+            socratic_res = prompt_chatllm(prompt, temperature=0.9)
+            if 'YES' in socratic_res or 'Yes' in socratic_res and check_numbers(socratic_res) is not None:
+                break
+            elif 'NO' in socratic_res or 'No' in socratic_res and check_numbers(socratic_res) is not None:
+                break
+        except:
+            print('Error, retrying...')
+            time.sleep(5)
+    return socratic_res
+
+
+def get_prediction_confidence(prompt):
+    ans = None
+    prediction = None
+    confidence = None
+
+    iter_num = 0
+    while True:
+        iter_num += 1
+        if iter_num > 5:
+            print('Trying too many times, just ignore this example.')
+            break
+        try:
+            ans = prompt_chatllm(prompt, temperature=0.9)
+            prediction, confidence = filter_invalid_ans(ans)
+            if prediction is not None and confidence is not None:
+                break
+        except:
+            print('Error, retrying...')
+            time.sleep(5)
+    return ans, prediction, confidence
+
+
+def load_audio_info():
+    audio_info = {}
+    with open('./data/audios/utterances_final_.csv', 'r') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            audio_info[row[0]] = row[-1]
+    return audio_info
+
+
+def load_vision_info():
+    vision_info = {}
+    with open('./data/frames/face_emotions.csv', 'r') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            vision_info[row[0]] = row[1:]
+    return vision_info
+
+
+def add_text(data, prompt):
+    utterance = data['utterance']
+    context = data['context']
+    utterance_speaker = data['speaker']
+    context_speaker = data['context_speakers']
+    for s, u in zip(context_speaker, context):
+        prompt += '{}: {}\n'.format(s, u)
+    prompt += '{}: {}\n'.format(utterance_speaker, utterance)
+    return prompt
+
 
 if __name__ == '__main__':
     with open('./sarcasm_data.json', 'r') as f:
         dataset = json.load(f)
     predictions = []
+    confidences = []
     gths = []
 
-    audio_data = {}
-    with open('./data/audios/utterances_final_.csv', 'r') as f:
-        reader = csv.reader(f)
-        for row in reader:
-            audio_data[row[0]] = row[-1]
 
-    for idx, data in tqdm(dataset.items()):
+    audio_info = load_audio_info()
+    vision_info = load_vision_info()
+
+    for index, (idx, data) in enumerate(tqdm(dataset.items())):
         prompt = """Here is the final question:\n"""
-        dir_name = './data/frames/utterances_final/'
-        directory = '{}/{}'.format(dir_name, idx)
-        img_num = count_files_in_directory(directory)
-
-        '''
         prompt = add_text(data, prompt)
-        for img_id in range(1, img_num+1, 20):
-            img_name = str(img_id).zfill(5) + '.jpg'
-            img = cv2.imread(os.path.join(directory, img_name))
-            prompt = add_face_emotion(img, prompt)
-        '''
-
-        utterance = data['utterance']
-        
-
-        audio_emotion = audio_data[idx]
-        prompt = add_audio(utterance, audio_emotion, prompt)
-        prompt += f'Question: Is the last utterance sarcastic? Answer with YES or NO: ' 
-
+        prompt += f'Question: Is the last utterance sarcastic? Rate your confidence for your answer from 1-5 and answer with YES or NO: ' 
         print(prompt)
 
-        iter_num = 0
-        while True:
-            iter_num += 1
-            print(iter_num)
-            if iter_num > 5:
-                break
-            try:
-                socratic_res = prompt_chatllm(prompt, temperature=0.9)
-                if 'YES' in socratic_res:
-                    predictions.append(True)
-                    gths.append(data['sarcasm'])
-                    break
-                elif 'NO' in socratic_res:
-                    predictions.append(False)
-                    gths.append(data['sarcasm'])
-                    break
-            except:
-                print('Error, retrying...')
-                time.sleep(5)
+        ans, prediction, confidence = get_prediction_confidence(prompt)
+        gths.append(data['sarcasm'])
+        predictions.append(prediction)
+        confidences.append(confidence)
+        print(ans)
 
-        print(socratic_res)
     
     # given gths list and predictions list, compute accuracy
     acc = sum([1 if p == g else 0 for p, g in zip(predictions, gths)]) / len(gths)
@@ -313,22 +364,3 @@ if __name__ == '__main__':
     recall = recall_score(gths, predictions)
     print(acc, f1, precision, recall)
     import pdb; pdb.set_trace()
-
-    clip_version = "ViT-L/14"
-    clip_feat_dim = {'RN50': 1024, 'RN101': 512, 'RN50x4': 640, 'RN50x16': 768, 'RN50x64': 1024, 'ViT-B/32': 512, 'ViT-B/16': 512, 'ViT-L/14': 768}[clip_version]
-    model, preprocess = clip.load(clip_version)
-    model.cuda().eval()
-
-    img_size = model.visual.input_resolution
-    fname = '2_448_frame.png'
-    img = cv2.cvtColor(cv2.imread(fname), cv2.COLOR_BGR2RGB)
-    state_world = get_state_world(img)
-
-    prompt = f"""
-{state_world}
-They say "Do you still wanna call  'em? I wanna call  'em."
-Question: Is this sarcasm? Answer and Explain. Answer: """
-
-    socratic_res = prompt_llm(prompt, temperature=0.9)
-    print(socratic_res)
-    
