@@ -111,9 +111,12 @@ def build_vision_prompt(dataset, vision_info):
     prompts = []
     for index, (idx, data) in enumerate(tqdm(dataset.items())):
         utterance = data['utterance']
-        vision_emotion = ' ,'.join(vision_info[idx])
+        if len(vision_info[idx]) == 0:
+            vision_emotion = 'neutral'
+        else:
+            vision_emotion = ', '.join(vision_info[idx])
         prompt = "Think about the relationship between facial expressions like happy / angry / sad / neutral and whether a sentence is sarcastic or not.\n"
-        prompt += f"The last utterance '{utterance}' is said with a {vision_emotion} face.\n"
+        prompt += f"The last utterance '{utterance}' is said with {vision_emotion} face.\n"
         prompt += f'Question: Is the last utterance sarcastic? Rate your confidence for your answer from 1-5 and answer with YES or NO: ' 
         prompts.append(prompt)
     return prompts
@@ -136,17 +139,17 @@ def generate(prompts):
     while iter_num <= 5:
         iter_num += 1
         gen_ans = []
-        for i in range(0, len(prompts), 5):
+        for i in range(0, len(prompts), 10):
             while True:
                 try:
-                    gen_ans += asyncio.run(generate_from_openai_chat_completion(
-                        prompts[i:i+5],
+                    gen_ans += asyncio.run(asyncio.wait_for(generate_from_openai_chat_completion(
+                        prompts[i:i+10],
                         config,
                         temperature=temp,
                         max_tokens=max_output_len,
                         top_p=p,
                         requests_per_minute=100,
-                    ))
+                    ), timeout=10))
                     break
                 except:
                     print('Failed! Sleep 5 seconds and try again.')
@@ -181,6 +184,7 @@ if __name__ == '__main__':
         dataset = json.load(f)
         labels = [data['sarcasm'] for idx, data in dataset.items()]
 
+
     predictions = []
     confidences = []
 
@@ -191,13 +195,15 @@ if __name__ == '__main__':
     audio_prompts = build_audio_prompt(dataset, audio_info)
     vision_prompts = build_vision_prompt(dataset, vision_info)
 
-    predictions, confidences = generate(text_prompts)
+    predictions, confidences = generate(vision_prompts)
 
-    import pdb; pdb.set_trace()
-    predictions = [p for p, c, l in zip(predictions, confidences, labels) if p is not None]
-    confidences = [c for p, c, l in zip(predictions, confidences, labels) if p is not None]
-    labels = [l for p, c, l in zip(predictions, confidences, labels) if p is not None]
+    predictions_ = [p for p, c, l in zip(predictions, confidences, labels) if p is not None]
+    confidences_ = [c for p, c, l in zip(predictions, confidences, labels) if p is not None]
+    labels_ = [l for p, c, l in zip(predictions, confidences, labels) if p is not None]
 
-    acc, f1, precision, recall = eval_metric(predictions, labels)
+    acc, f1, precision, recall = eval_metric(predictions_, labels_)
     print(acc, f1, precision, recall)
+    #torch.save(predictions, './vision_only_predictions.pt')
+    #torch.save(confidences, './vision_only_confidences.pt')
+    #torch.save(labels, './vision_only_labels.pt')
     import pdb; pdb.set_trace()
