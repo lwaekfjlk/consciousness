@@ -195,13 +195,16 @@ def generate_link(prompts):
 def pack_to_combine(text_prompts, audio_prompts, vision_prompts, link_predictions):
     prompts = []
     for text_prompt, audio_prompt, vision_prompt, link_prediction in zip(text_prompts, audio_prompts, vision_prompts, link_predictions):
-        text_and_audio_link, text_and_vision_link, audio_and_vision_link = link_prediction
-        if text_and_audio_link is True:
-            prompt = text_prompt + '\n' + audio_prompt + '\n'
-        elif text_and_vision_link is True:
-            prompt = text_prompt + '\n' + vision_prompt + '\n'
-        elif audio_and_vision_link is True:
-            prompt = audio_prompt + '\n' + vision_prompt + '\n'
+        if link_prediction is None:
+            prompt = text_prompt + '\n' + audio_prompt + '\n' + vision_prompt + '\n'
+        else:
+            text_and_audio_link, text_and_vision_link, audio_and_vision_link = link_prediction
+            if text_and_audio_link is True:
+                prompt = text_prompt + '\n' + audio_prompt + '\n'
+            elif text_and_vision_link is True:
+                prompt = text_prompt + '\n' + vision_prompt + '\n'
+            elif audio_and_vision_link is True:
+                prompt = audio_prompt + '\n' + vision_prompt + '\n'
         prompt += f'Question: Is the last utterance sarcastic? Rate your confidence for your answer from 1-5 and answer with YES or NO: ' 
         prompts.append(prompt)
     return prompts
@@ -282,8 +285,9 @@ if __name__ == '__main__':
     vision_prompts = build_vision_prompt(dataset, vision_info)
     link_prompts = pack_to_link(text_prompts, audio_prompts, vision_prompts)
 
-    link_predictions = generate_link(link_prompts)
-    import pdb; pdb.set_trace()
+    #link_predictions = generate_link(link_prompts)
+    link_predictions = torch.load('./link_prediction.pt')
+
     combine_prompts = pack_to_combine(text_prompts, audio_prompts, vision_prompts, link_predictions)
     predictions, confidences = generate_combine(combine_prompts)
 
