@@ -198,6 +198,7 @@ def pack_to_combine(text_prompts, audio_prompts, vision_prompts, link_prediction
         if link_prediction is None:
             prompt = text_prompt + '\n' + audio_prompt + '\n' + vision_prompt + '\n'
         else:
+            '''
             text_and_audio_link, text_and_vision_link, audio_and_vision_link = link_prediction
             if text_and_audio_link is True:
                 prompt = text_prompt + '\n' + audio_prompt + '\n'
@@ -205,6 +206,8 @@ def pack_to_combine(text_prompts, audio_prompts, vision_prompts, link_prediction
                 prompt = text_prompt + '\n' + vision_prompt + '\n'
             elif audio_and_vision_link is True:
                 prompt = audio_prompt + '\n' + vision_prompt + '\n'
+            '''
+            prompt = text_prompt + '\n' + audio_prompt + '\n' + vision_prompt + '\n'
         prompt += f'Question: Is the last utterance sarcastic? Rate your confidence for your answer from 1-5 and answer with YES or NO: ' 
         prompts.append(prompt)
     return prompts
@@ -285,6 +288,7 @@ if __name__ == '__main__':
     vision_prompts = build_vision_prompt(dataset, vision_info)
     link_prompts = pack_to_link(text_prompts, audio_prompts, vision_prompts)
 
+    import pdb; pdb.set_trace()
     #link_predictions = generate_link(link_prompts)
     link_predictions = torch.load('./link_prediction.pt')
 
@@ -297,7 +301,7 @@ if __name__ == '__main__':
 
     acc, f1, precision, recall = eval_metric(predictions_, labels_)
     print(acc, f1, precision, recall)
-    #torch.save(predictions, './vision_only_predictions.pt')
-    #torch.save(confidences, './vision_only_confidences.pt')
-    #torch.save(labels, './vision_only_labels.pt')
+    torch.save(predictions, './all_modality_predictions.pt')
+    torch.save(confidences, './all_modality_confidences.pt')
+    torch.save(labels, './all_modality_labels.pt')
     import pdb; pdb.set_trace()
