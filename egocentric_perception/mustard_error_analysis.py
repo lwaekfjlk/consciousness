@@ -104,7 +104,7 @@ for idx in range(690):
     for vision_emotion in vision_emotions:
         if vision_emotion not in vision_pred_dict.keys():
             vision_pred_dict[vision_emotion] = {True: 0, False: 0}
-        vision_pred = vision_only_predictions[idx]
+        vision_pred = vision_labels[idx]
         if vision_pred is not None:
             vision_pred_dict[vision_emotion][vision_pred] += 1
 
