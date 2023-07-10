@@ -27,8 +27,8 @@ def map_to_array(input_file):
 
 def predict(speeches):
     labels = []
-    model = HubertForSequenceClassification.from_pretrained("superb/hubert-base-superb-er")
-    feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained("superb/hubert-base-superb-er")
+    model = HubertForSequenceClassification.from_pretrained("superb/hubert-large-superb-er")
+    feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained("superb/hubert-large-superb-er")
 
     bsz = 3
     for i in tqdm(range(0, len(speeches), bsz)):
@@ -53,6 +53,8 @@ def preprocess(audio_file):
     result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
 
     duration = librosa.get_duration(filename=audio_file)
+    if len(result['segments']) != 1:
+        import pdb; pdb.set_trace()
     start = result["segments"][0]['start']
     end = result["segments"][-1]['end']
     data, rate = librosa.load(audio_file, res_type='kaiser_fast', duration=1000, sr=22050*2, offset=0)
@@ -73,6 +75,7 @@ if __name__ == '__main__':
     ids = []
     file_path = []
     directory = "./data/audios/utterances_final"
+    '''
     for root, dirs, files in os.walk(directory):
         for file in files:
             if file.endswith(".aac"):
@@ -80,14 +83,22 @@ if __name__ == '__main__':
                 data_id = file.split(".")[0]
                 ids.append(data_id)
 
-    for file in tqdm(file_path):
+    for idx, file in enumerate(tqdm(file_path)):
         preprocess(file)
-    import pdb; pdb.set_trace()
+    '''
+
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith(".wav"):
+                speech = map_to_array(os.path.join(root, file))
+                speeches.append(speech)
+                data_id = file.split(".")[0]
+                ids.append(data_id)    
 
     emotions = predict(speeches)
     for data_id, emotion in zip(ids, emotions):
         dataset.append([data_id, emotion])
-    with open('./data/audios/utterances_final_.csv', 'w') as file:
+    with open('./data/audios/utterances_final_filtered.csv', 'w') as file:
         writer = csv.writer(file)
         for row in dataset:
             writer.writerow(row)
