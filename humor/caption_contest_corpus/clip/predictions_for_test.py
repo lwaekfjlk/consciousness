@@ -120,10 +120,10 @@ def main():
     # TODO(haofeiyu): we use the test data here 
     if args.task == 'matching':
         dataset = list(load_dataset("jmhessel/newyorker_caption_contest", 'matching')['test'])
-        test_ = [trainlib.convert_matching(t, args, leaderboard_mode=False) for t in dataset]
+        test = [trainlib.convert_matching(t, args, leaderboard_mode=False) for t in dataset]
     elif args.task == 'ranking':
         dataset = list(load_dataset("jmhessel/newyorker_caption_contest", 'ranking')['test'])
-        #test = [trainlib.convert_matching(t, args, leaderboard_mode=False) for t in test]
+        test = [trainlib.convert_matching(t, args, leaderboard_mode=False) for t in dataset]
 
     '''
     test = []
