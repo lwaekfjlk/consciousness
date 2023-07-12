@@ -430,6 +430,7 @@ def main():
         contest2inst[t['contest_number']].append(t)
     all_train_contests = list(sorted(contest2inst.keys()))
 
+    import pdb; pdb.set_trace()
     dataset = list(load_dataset("jmhessel/newyorker_caption_contest", split_name)['test' if not args.val else 'validation'])
     np.random.shuffle(dataset)
 
@@ -443,14 +444,14 @@ def main():
 
     if args.shots == 0:
         if args.fd_mode == 4: # default
-            cache = 'query_cache/{}_{}_cache.jsonl'.format(args.task, args.engine)
+            cache = 'query_cache_/{}_{}_cache.jsonl'.format(args.task, args.engine)
         else:
-            cache = 'query_cache/{}_{}_mode={}_cache.jsonl'.format(args.task, args.engine, args.fd_mode)
+            cache = 'query_cache_/{}_{}_mode={}_cache.jsonl'.format(args.task, args.engine, args.fd_mode)
     else:
         if args.fd_mode == 4:
-            cache = 'query_cache/{}_{}_{}_cache.jsonl'.format(args.task, args.engine, args.shots)
+            cache = 'query_cache_/{}_{}_{}_cache.jsonl'.format(args.task, args.engine, args.shots)
         else:
-            cache = 'query_cache/{}_{}_{}_mode={}_cache.jsonl'.format(args.task, args.engine, args.shots, args.fd_mode)
+            cache = 'query_cache_/{}_{}_{}_mode={}_cache.jsonl'.format(args.task, args.engine, args.shots, args.fd_mode)
 
 
     if os.path.exists(cache):
