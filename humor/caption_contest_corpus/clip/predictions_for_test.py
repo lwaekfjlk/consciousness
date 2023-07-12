@@ -116,6 +116,7 @@ def main():
     torch.manual_seed(1)
     torch.cuda.manual_seed(1)
 
+    '''
     test = load_leaderboard_instances(args.leaderboard_dir)
     if args.task == 'matching':
         test = [trainlib.convert_matching(t, args, leaderboard_mode=True) for t in test]
@@ -123,6 +124,29 @@ def main():
         test = [trainlib.convert_quality(t, args, leaderboard_mode=True) for t in test]
     else:
         raise NotImplementedError
+    '''
+
+    # TODO(haofeiyu): we use the test data here 
+    if args.task == 'matching':
+        dataset = list(load_dataset("jmhessel/newyorker_caption_contest", 'matching')['test'])
+        #test = [trainlib.convert_matching(t, args, leaderboard_mode=False) for t in test]
+    elif args.task == 'ranking':
+        dataset = list(load_dataset("jmhessel/newyorker_caption_contest", 'ranking')['test'])
+        #test = [trainlib.convert_matching(t, args, leaderboard_mode=False) for t in test]
+
+    test = []
+    label_dict = {}
+    for idx, data in enumerate(dataset):
+        instance_id = idx
+        label_dict[instance_id] = data['label']
+        image = data['image']
+        label = 'ABCDE'.index(data['label'])
+        choices = {}
+        chars = ['A', 'B', 'C', 'D', 'E']
+        for char, choice in zip(chars, data['caption_choices']):
+            choices[char] = choice
+        test.append({'image': image, 'label': label, 'choices': choices, 'instance_id': instance_id})
+    
 
     args.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model, preprocess = clip.load(args.clip_model, jit=False)
@@ -160,11 +184,12 @@ def main():
 
     bar = tqdm.tqdm(enumerate(test_loader), total=len(test_loader))
 
-    all_preds, all_instances = [], []
+    all_preds, all_labels, all_instances = [], [], []
 
     for i, batch in bar:
         with torch.no_grad():
             instances = batch['instance_id']
+            labels = batch['label'].tolist()
             del batch['instance_id']
             batch = trainlib.batch_to_device(batch, 'val', args)
             n_choice = batch['choices'].shape[1]
@@ -175,12 +200,20 @@ def main():
             logits = logit_scale.exp() * (image_features * text_features).sum(2)
             preds = logits.argmax(1).cpu().numpy().tolist()
             all_preds.extend(['ABCDE'[p] for p in preds])
+            all_labels.extend(['ABCDE'[l] for l in labels])
             all_instances.extend(list(instances))
 
-    output_dict = dict(zip(all_instances, all_preds))
 
+    correct = 0
+    for label, pred in zip(all_labels, all_preds):
+        # calculate accuracy based on label_dict
+        if pred == label:
+            correct += 1
+    print('accuracy: {}'.format(correct / len(all_labels)))
+
+    import pdb; pdb.set_trace()
     with open(args.output, 'w') as f:
-        f.write(json.dumps(output_dict))
+        f.write(json.dumps(all_preds))
 
 if __name__ == '__main__':
     main()

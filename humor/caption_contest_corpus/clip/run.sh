@@ -1,0 +1,1 @@
+python predictions_for_leaderboard.py task=matching~split=5~valacc=0.64962~pad=1~model=ViT-L*14@336px~lr=5e-06.pt matching_test_set_public
