@@ -10,6 +10,7 @@ import tqdm
 import os
 import collections
 import clip
+import jsonlines
 import accelerate
 import random
 import subprocess
@@ -175,7 +176,7 @@ def main():
 
     bar = tqdm.tqdm(enumerate(test_loader), total=len(test_loader))
 
-    all_preds, all_labels, all_instances = [], [], []
+    all_preds, all_labels, all_logits = [], [], []
 
     sum_accs = 0
     for i, batch in bar:
@@ -188,15 +189,22 @@ def main():
             image_features = torch.unsqueeze(image_features, 1)
             logits = logit_scale.exp() * (image_features * text_features).sum(2)
             preds = logits.argmax(1).cpu().numpy().tolist()
+            
             sum_accs += np.sum(logits.argmax(1).detach().cpu().numpy() == batch['labels'].detach().cpu().numpy())
             all_preds.extend(['ABCDE'[p] for p in preds])
             all_labels.extend(['ABCDE'[l] for l in batch['labels'].tolist()])
+            all_logits.extend(logits.detach().cpu().numpy().tolist())
 
     print('accuracy: {}'.format(sum_accs / len(all_labels)))
 
-    import pdb; pdb.set_trace()
-    with open(args.output, 'w') as f:
-        f.write(json.dumps(all_preds))
+    for pred, label, logits, data in zip(all_preds, all_labels, all_logits, dataset):
+        assert data['label'] == label
+        data['pred'] = pred
+        data['logits'] = logits
+        del data['image']
+
+    with jsonlines.open(args.output, 'w') as f:
+        f.write_all(dataset)
 
 if __name__ == '__main__':
     main()
