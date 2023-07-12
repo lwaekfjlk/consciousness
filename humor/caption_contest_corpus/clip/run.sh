@@ -1,1 +1,2 @@
-python predictions_for_leaderboard.py task=matching~split=5~valacc=0.64962~pad=1~model=ViT-L*14@336px~lr=5e-06.pt matching_test_set_public
+python predictions_for_test.py task=matching~split=5~valacc=0.64962~pad=1~model=ViT-L*14@336px~lr=5e-06.pt matching_test_set_public
+#python predictions_for_leaderboard.py zero_shot matching_test_set_public --clip_model ViT-L/14@336px --task matching --prefix "a new yorker cartoon with winning caption: "
