@@ -78,7 +78,7 @@ def parse_args():
     if args.clip_model_path != 'zero_shot':
         args.zero_shot_mode = False
         args.prefix = '' # assume fine-tuned models are trained with no prefix.
-        args.output = args.clip_model_path.replace('.pt', '~results.json')
+        args.output = args.clip_model_path.replace('.pt', '~results_train_set.json')
     else:
         args.zero_shot_mode = True
         if not args.prefix:
@@ -120,7 +120,7 @@ def main():
 
     # TODO(haofeiyu): we use the test data here 
     if args.task == 'matching':
-        dataset = list(load_dataset("jmhessel/newyorker_caption_contest", 'matching')['test'])
+        dataset = list(load_dataset("jmhessel/newyorker_caption_contest", 'matching')['train'])
         test = [trainlib.convert_matching(t, args, leaderboard_mode=False) for t in dataset]
     elif args.task == 'ranking':
         dataset = list(load_dataset("jmhessel/newyorker_caption_contest", 'ranking')['test'])
@@ -176,12 +176,11 @@ def main():
 
     bar = tqdm.tqdm(enumerate(test_loader), total=len(test_loader))
 
-    all_preds, all_labels, all_logits, all_instances = [], [], [], []
+    all_preds, all_labels, all_logits = [], [], []
 
     sum_accs = 0
     for i, batch in bar:
         with torch.no_grad():
-            instances = batch['instance_id']
             batch = trainlib.batch_to_device(batch, 'val', args)
             n_choice = batch['choices'].shape[1]
             batch['choices'] = batch['choices'].reshape((-1, 77))
@@ -195,15 +194,13 @@ def main():
             all_preds.extend(['ABCDE'[p] for p in preds])
             all_labels.extend(['ABCDE'[l] for l in batch['labels'].tolist()])
             all_logits.extend(logits.detach().cpu().numpy().tolist())
-            all_instances.extend(list(instances))
 
     print('accuracy: {}'.format(sum_accs / len(all_labels)))
 
-    for instance, pred, label, logits, data in zip(all_instances, all_preds, all_labels, all_logits, dataset):
+    for pred, label, logits, data in zip(all_preds, all_labels, all_logits, dataset):
         assert data['label'] == label
         data['pred'] = pred
         data['logits'] = logits
-        data['instance_id'] = instance
         del data['image']
 
     with jsonlines.open(args.output, 'w') as f:

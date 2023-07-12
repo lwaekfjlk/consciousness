@@ -234,6 +234,7 @@ def convert_matching(inst, args, leaderboard_mode=False):
         new_inst['choices'] = inst['caption_choices']
         new_inst['label'] = 'ABCDE'.index(inst['label'])
         new_inst['contest_number'] = inst['contest_number']
+        new_inst['instance_id'] = inst['instance_id']
 
 
     if isinstance(inst['image'], str):
