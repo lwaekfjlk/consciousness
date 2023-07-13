@@ -5,18 +5,47 @@ import json
 from fer import FER
 from tqdm import tqdm
 
+
+def draw_rectangle(image, box_coordinates, color=(0, 255, 0), thickness=2):
+    """
+    Draws a rectangle on the image using the specified box coordinates.
+    
+    Args:
+        image (numpy.ndarray): The image on which to draw the rectangle.
+        box_coordinates (tuple or list): The coordinates of the box in the format (x, y, width, height).
+        color (tuple, optional): The color of the rectangle in BGR format. Default is green (0, 255, 0).
+        thickness (int, optional): The thickness of the rectangle's lines. Default is 2.
+    
+    Returns:
+        numpy.ndarray: The image with the rectangle drawn.
+    """
+    for box in box_coordinates:
+        x, y, width, height = box 
+        cv2.rectangle(image, (x, y), (x + width, y + height), color, thickness)
+    return image
+
+
 def predict(frame):
-    predictions = []
+    pred_emotions = []
+    pred_boxes = []
     detector = FER()
     detector_results = detector.detect_emotions(frame)
     for detector_result in detector_results:
+        boxes = detector_result['box']
         emotions = detector_result['emotions']
+        pred_emotion = 'neutral'
         for emotion, score in emotions.items():
-            if score > 0.5:
-                predictions.append(emotion)
-    # delete duplicates
-    predictions = list(set(predictions))
-    return predictions
+            if score > 0.8:
+                pred_emotion = emotion
+        pred_emotions.append(pred_emotion)
+        pred_boxes.append(boxes)
+
+    image_with_rectangle = draw_rectangle(frame, pred_boxes)
+    cv2.imwrite('./output_image.jpg', image_with_rectangle)
+    print(pred_emotions)
+    if 'angry' in pred_emotions:
+        import pdb; pdb.set_trace()
+    return pred_emotions
     
 
 if __name__ == '__main__':

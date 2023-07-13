@@ -81,7 +81,34 @@ def load_vision_info():
 def build_text_prompt(dataset):
     prompts = []
     for index, (idx, data) in enumerate(tqdm(dataset.items())):
-        prompt = "Here is the final question:\n"
+        prompt = """
+Sarcasm is when people don't respond directly but they respond in an unexpected way with a special intention outside of the sentence itself. And this special intention is to show their unwillingness or unsatisfaction.
+Not sarcasm is when response doesn't include any intentional information and just want to say what the response means. And the response does not carry any unwillingness or unsatisfaction.
+        """
+        prompt += """
+For example,
+SHELDON: And I cannot believe people pay for horoscopes, but on a more serious note, it's 8:13 and we're still not playing Halo.
+LEONARD: Fine. We'll just play one-on-one until he gets back.
+SHELDON: One-on-one? We don't play one-on-one.
+SHELDON: We play teams, not one-on-one.
+SHELDON: One-on-one.
+LEONARD: The only way we can play teams at this point is if we cut Raj in half.
+The utterance said by RAJ "Sure, cut the foreigner in half. There's a billion more where he came from." is sarcasm because it shows the unwillingness of RAJ to be cut in half.
+
+For example,
+LEONARD: Do you really need the Honorary Justice League of American membership card?
+SHELDON: It's been in every wallet I've owned since I was five.
+LEONARD: Why?
+SHELDON: It says, \"Keep this on your person at all times.\"
+SHELDON: It's right here under Batman's signature.
+RAJ: and this is Leonard and Sheldon's apartment.
+HOWARD: Guess whose parents just got broadband.
+RAG: Leonard, may I present, live from New Delhi, Dr. and Mrs. V. M. Koothrappali.
+The utterance said by RAJ "Leonard, may I present, live from New Delhi, Dr. and Mrs. V. M. Koothrappali." is not sarcasm because it is just a normal introduction.
+        """
+        prompt += """
+Here is the final question:\n
+        """
         utterance = data['utterance']
         context = data['context']
         utterance_speaker = data['speaker']
@@ -89,7 +116,8 @@ def build_text_prompt(dataset):
         for s, u in zip(context_speaker, context):
             prompt += '{}: {}\n'.format(s, u)
         prompt += '{}: {}\n'.format(utterance_speaker, utterance)
-        prompt += f'Question: Is the last utterance sarcastic? Rate your confidence for your answer from 1-5 and answer with YES or NO: ' 
+        #prompt += f'Question: Is the last utterance sarcastic? Rate your confidence for your answer from 1-5 and answer with YES or NO and explain the reason for your judgement: ' 
+        prompt += f'Question: Is the last utterance sarcastic? Answer with YES or NO:'
         prompts.append(prompt)
     return prompts
 
@@ -102,7 +130,7 @@ def build_audio_prompt(dataset, audio_info):
         # similar prompt with additional_audio_module
         prompt = "Think about the relationship between tone emotions like happy / angry / sad / neutral and whether a sentence is sarcastic or not.\n"
         prompt += f"The last utterance '{utterance}' is said in a {audio_emotion} tone.\n"
-        prompt += f'Question: Is the last utterance sarcastic? Rate your confidence for your answer from 1-5 and answer with YES or NO: ' 
+        prompt += f'Question: Is the last utterance sarcastic? Answer with YES or NO: ' 
         prompts.append(prompt)
     return prompts
 
@@ -124,7 +152,7 @@ def build_vision_prompt(dataset, vision_info):
 
 def generate(prompts):
     # config for generation
-    model_name = 'gpt-3.5-turbo'
+    model_name = 'gpt-3.5-turbo-0613'
     max_output_len = 512
     temp = 0.2
     p = 0.8
@@ -136,7 +164,7 @@ def generate(prompts):
 
     # Run the loop until all predictions are filled
     iter_num = 0
-    while iter_num <= 5:
+    while iter_num <= 50:
         iter_num += 1
         gen_ans = []
         for i in range(0, len(prompts), 10):
@@ -152,13 +180,14 @@ def generate(prompts):
                     ), timeout=10))
                     break
                 except:
-                    print('Failed! Sleep 5 seconds and try again.')
-                    time.sleep(5)
+                    print('Failed! Sleep 10 seconds and try again.')
+                    time.sleep(10)
+
         new_prompts = []
         new_indices = []
         for idx, ans in enumerate(gen_ans):
             prediction, confidence = filter_invalid_ans(ans)
-            if prediction is None or confidence is None:
+            if prediction is None:
                 new_prompts.append(prompts[idx])
                 new_indices.append(idx)
             else:
@@ -195,7 +224,15 @@ if __name__ == '__main__':
     audio_prompts = build_audio_prompt(dataset, audio_info)
     vision_prompts = build_vision_prompt(dataset, vision_info)
 
-    predictions, confidences = generate(vision_prompts)
+    predictions, confidences = generate(audio_prompts)
+
+    #predictions = torch.load('./lang_only_predictions_few_shot.pt')
+    #confidences = torch.load('./lang_only_confidences_few_shot.pt')
+    #labels = torch.load('./lang_only_labels_few_shot.pt')
+    for idx, (p, c, l) in enumerate(zip(predictions, confidences, labels)):
+        if p is None:
+            predictions[idx] = False
+            confidences[idx] = 5
 
     predictions_ = [p for p, c, l in zip(predictions, confidences, labels) if p is not None]
     confidences_ = [c for p, c, l in zip(predictions, confidences, labels) if p is not None]

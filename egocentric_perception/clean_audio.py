@@ -22,6 +22,8 @@ label_dict = {
 
 def map_to_array(input_file):
     speech, _ = librosa.load(input_file, sr=16000, mono=True)
+    speech_len = len(speech)
+    speech = speech[int(speech_len * 0.2):int(speech_len * 0.8)]
     return speech
 
 
@@ -35,6 +37,8 @@ def predict(speeches):
         # compute attention masks and normalize the waveform if needed
         inputs = feature_extractor(speeches[i: i+bsz], sampling_rate=16000, padding=True, return_tensors="pt")
         logits = model(**inputs).logits
+        logits = torch.nn.functional.softmax(logits, dim=-1)
+        logits[:, 0] = 0.8
         predicted_ids = torch.argmax(logits, dim=-1)
         labels += [label_dict[model.config.id2label[_id]] for _id in predicted_ids.tolist()]
         print(labels)
