@@ -10,7 +10,7 @@ import json
 import os
 import time
 import collections
-import prompts
+import prompts_syn
 import copy
 import hashlib
 import tqdm
