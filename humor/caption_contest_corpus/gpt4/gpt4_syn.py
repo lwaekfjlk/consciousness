@@ -15,46 +15,46 @@ import copy
 import hashlib
 import tqdm
 
-# matching prompts
+# matching prompts_syn
 _PROMPT_SYSTEM_MATCHING_V1, _PROMPT_USER_MATCHING_V1, _RESPONSE_ASSISTANT_MATCHING_V1 = (
-    prompts._PROMPT_SYSTEM_MATCHING_V1,
-    prompts._PROMPT_USER_MATCHING_V1,
-    prompts._RESPONSE_ASSISTANT_MATCHING_V1)
+    prompts_syn._PROMPT_SYSTEM_MATCHING_V1,
+    prompts_syn._PROMPT_USER_MATCHING_V1,
+    prompts_syn._RESPONSE_ASSISTANT_MATCHING_V1)
 
-# ranking prompts
+# ranking prompts_syn
 _PROMPT_SYSTEM_RANKING_V1, _PROMPT_USER_RANKING_V1, _RESPONSE_ASSISTANT_RANKING_V1 = (
-    prompts._PROMPT_SYSTEM_RANKING_V1,
-    prompts._PROMPT_USER_RANKING_V1,
-    prompts._RESPONSE_ASSISTANT_RANKING_V1)
+    prompts_syn._PROMPT_SYSTEM_RANKING_V1,
+    prompts_syn._PROMPT_USER_RANKING_V1,
+    prompts_syn._RESPONSE_ASSISTANT_RANKING_V1)
 
-# explanation prompts
+# explanation prompts_syn
 _PROMPT_SYSTEM_EXPLANATION_V1, _PROMPT_USER_EXPLANATION_V1, _RESPONSE_ASSISTANT_EXPLANATION_V1 = (
-    prompts._PROMPT_SYSTEM_EXPLANATION_V1,
-    prompts._PROMPT_USER_EXPLANATION_V1,
-    prompts._RESPONSE_ASSISTANT_EXPLANATION_V1)
+    prompts_syn._PROMPT_SYSTEM_EXPLANATION_V1,
+    prompts_syn._PROMPT_USER_EXPLANATION_V1,
+    prompts_syn._RESPONSE_ASSISTANT_EXPLANATION_V1)
 
-# matching prompts direct answer
+# matching prompts_syn direct answer
 _PROMPT_SYSTEM_MATCHING_DIRECT_ANSWER_V1, _PROMPT_USER_MATCHING_DIRECT_ANSWER_V1, _RESPONSE_ASSISTANT_MATCHING_DIRECT_ANSWER_V1 = (
-    prompts._PROMPT_SYSTEM_MATCHING_DIRECT_ANSWER_V1,
-    prompts._PROMPT_USER_MATCHING_DIRECT_ANSWER_V1,
-    prompts._RESPONSE_ASSISTANT_MATCHING_DIRECT_ANSWER_V1)
+    prompts_syn._PROMPT_SYSTEM_MATCHING_DIRECT_ANSWER_V1,
+    prompts_syn._PROMPT_USER_MATCHING_DIRECT_ANSWER_V1,
+    prompts_syn._RESPONSE_ASSISTANT_MATCHING_DIRECT_ANSWER_V1)
 
-# ranking prompts direct answer
+# ranking prompts_syn direct answer
 _PROMPT_SYSTEM_RANKING_DIRECT_ANSWER_V1, _PROMPT_USER_RANKING_DIRECT_ANSWER_V1, _RESPONSE_ASSISTANT_RANKING_DIRECT_ANSWER_V1 = (
-    prompts._PROMPT_SYSTEM_RANKING_DIRECT_ANSWER_V1,
-    prompts._PROMPT_USER_RANKING_DIRECT_ANSWER_V1,
-    prompts._RESPONSE_ASSISTANT_RANKING_DIRECT_ANSWER_V1)
+    prompts_syn._PROMPT_SYSTEM_RANKING_DIRECT_ANSWER_V1,
+    prompts_syn._PROMPT_USER_RANKING_DIRECT_ANSWER_V1,
+    prompts_syn._RESPONSE_ASSISTANT_RANKING_DIRECT_ANSWER_V1)
 
-# explanation prompts direct answer
+# explanation prompts_syn direct answer
 _PROMPT_SYSTEM_EXPLANATION_DIRECT_ANSWER_V1, _PROMPT_USER_EXPLANATION_DIRECT_ANSWER_V1, _RESPONSE_ASSISTANT_EXPLANATION_DIRECT_ANSWER_V1 = (
-    prompts._PROMPT_SYSTEM_EXPLANATION_DIRECT_ANSWER_V1,
-    prompts._PROMPT_USER_EXPLANATION_DIRECT_ANSWER_V1,
-    prompts._RESPONSE_ASSISTANT_EXPLANATION_DIRECT_ANSWER_V1)
+    prompts_syn._PROMPT_SYSTEM_EXPLANATION_DIRECT_ANSWER_V1,
+    prompts_syn._PROMPT_USER_EXPLANATION_DIRECT_ANSWER_V1,
+    prompts_syn._RESPONSE_ASSISTANT_EXPLANATION_DIRECT_ANSWER_V1)
 
 # ICL examples for extraction
 _PROMPT_SYSTEM_ANSWER_EXTRACTION_V1, _ICL_SYSTEM_ANSWER_EXTRACTION_V1 = (
-    prompts._PROMPT_SYSTEM_ANSWER_EXTRACTION_V1,
-    prompts._ICL_SYSTEM_ANSWER_EXTRACTION_V1)
+    prompts_syn._PROMPT_SYSTEM_ANSWER_EXTRACTION_V1,
+    prompts_syn._ICL_SYSTEM_ANSWER_EXTRACTION_V1)
 
 
 _FD_MODE = 4
@@ -197,7 +197,6 @@ def generate_request_matching_few_shot(query, few_shots):
         'content': extra + '\n{}\nChoices:\n{}\n\nWhich of the 5 options (A, B, C, D, or E) is the caption that truly corresponds to the cartoon?'.format(
             format_chatgpt_input(query),
             '\n'.join(['{}: {}'.format(cidx, c) for cidx, c in zip('ABCDE', query['caption_choices'])]))})
-
     return messages
 
 
@@ -314,14 +313,14 @@ def main():
 
     if args.shots == 0:
         if args.fd_mode == 4: # default
-            cache = 'query_cache_answer/{}_{}_cache.jsonl'.format(args.task, args.engine)
+            cache = 'query_cache_syn/{}_{}_cache.jsonl'.format(args.task, args.engine)
         else:
-            cache = 'query_cache_answer/{}_{}_mode={}_cache.jsonl'.format(args.task, args.engine, args.fd_mode)
+            cache = 'query_cache_syn/{}_{}_mode={}_cache.jsonl'.format(args.task, args.engine, args.fd_mode)
     else:
         if args.fd_mode == 4:
-            cache = 'query_cache_answer/{}_{}_{}_cache.jsonl'.format(args.task, args.engine, args.shots)
+            cache = 'query_cache_syn/{}_{}_{}_cache.jsonl'.format(args.task, args.engine, args.shots)
         else:
-            cache = 'query_cache_answer/{}_{}_{}_mode={}_cache.jsonl'.format(args.task, args.engine, args.shots, args.fd_mode)
+            cache = 'query_cache_syn/{}_{}_{}_mode={}_cache.jsonl'.format(args.task, args.engine, args.shots, args.fd_mode)
 
 
     if os.path.exists(cache):
